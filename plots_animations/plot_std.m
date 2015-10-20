@@ -5,6 +5,7 @@ function plot_std(t,X,c)
   X_fill = repmat([X(:,1); flipud(X(:,3))], 1, 1);
   gca;
     hf = fill(t_fill, X_fill, c);
-    set(hf,'EdgeColor','None','FaceAlpha',0.5)
-    set(gca,'box','on')
+    set(hf,'EdgeColor','None');
+    set(hf,'FaceAlpha',0.5);
+    %set(gca,'box','on')
 end
