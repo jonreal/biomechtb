@@ -6,6 +6,5 @@ function plot_std(t,X,c)
   gca;
     hf = fill(t_fill, X_fill, c);
     set(hf,'EdgeColor','None');
-    set(hf,'FaceAlpha',0.5);
-    %set(gca,'box','on')
+    set(gca,'box','on')
 end

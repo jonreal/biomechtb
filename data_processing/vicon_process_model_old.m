@@ -1,24 +1,22 @@
-function rtn = vicon_process_model(trialName)
-% This function parses vicon model files
+function S = vicon_process_model(trialName)
+% ---
+% --- Function processes vicon model data (Joint kinetics/kinematics and
+% markers)
 
-  % Plots
   debug = 0;
 
-  % Parse model file
-  file = ['./',trialName,'_Model.csv'];
-  if exist(file,'file') ~= 2
-    fprintf('\n\tModel file not found: %s\n', file);
-    rtn.model = []
-    return
-  end
-
-  fid = fopen(file,'r');
+  directory = ['~/Dropbox/Professional/UW_PHD/', ...
+               'Prosthetic_Research/Data/PA_A01/Data/'];
+  fid = fopen([directory,trialName,'/',trialName,'_Model.csv']);
 
   % Store trialName
-  rtn.name = trialName;
+  S.name = trialName;
+
+  % Hard code mass for now
+  S.mass = 77.7;
 
   % skip two words, go next line, grab sample freq
-  rtn.freq = fscanf(fid, '%*s %*s\n %f', 1);
+  S.freq = fscanf(fid, '%*s %*s\n %f', 1);
 
   % skip line
   tline = fgetl(fid);
@@ -59,8 +57,8 @@ function rtn = vicon_process_model(trialName)
     rowCount = rowCount + 1;
   end
 
-  % Time = (frame number - 1) x dt
-  rtn.time = (D(:,1) - 1)*(1/rtn.freq);
+  % make time vector
+  S.time = [0:(1/S.freq):(numel(D(:,1))*(1/S.freq) - (1/S.freq))]';
 
   % Butterworth 4th cutoff = 6 HZ;
   [b,a] = butter(4,2*(6/120));
@@ -86,13 +84,13 @@ function rtn = vicon_process_model(trialName)
     jointAngle_Y = filtfilt(b,a,jointAngle_Y);
     jointAngle_Z = filtfilt(b,a,jointAngle_Z);
 
-    d_jointAngle_X = gradient(jointAngle_X)*rtn.freq;
-    d_jointAngle_Y = gradient(jointAngle_Y)*rtn.freq;
-    d_jointAngle_Z = gradient(jointAngle_Z)*rtn.freq;
+    d_jointAngle_X = gradient(jointAngle_X)*S.freq;
+    d_jointAngle_Y = gradient(jointAngle_Y)*S.freq;
+    d_jointAngle_Z = gradient(jointAngle_Z)*S.freq;
 
-    d2_jointAngle_X = gradient(d_jointAngle_X)*rtn.freq;
-    d2_jointAngle_Y = gradient(d_jointAngle_Y)*rtn.freq;
-    d2_jointAngle_Z = gradient(d_jointAngle_Z)*rtn.freq;
+    d2_jointAngle_X = gradient(d_jointAngle_X)*S.freq;
+    d2_jointAngle_Y = gradient(d_jointAngle_Y)*S.freq;
+    d2_jointAngle_Z = gradient(d_jointAngle_Z)*S.freq;
 
     % Moment ------------------------------------------------------------------
     jointMoment_X = -D(:,6 + (9*i - 9))/1000;
@@ -109,103 +107,103 @@ function rtn = vicon_process_model(trialName)
     jointMoment_Y = filtfilt(b,a,jointMoment_Y);
     jointMoment_Z = filtfilt(b,a,jointMoment_Z);
 
-    d_jointMoment_X = gradient(jointMoment_X)*rtn.freq;
-    d_jointMoment_Y = gradient(jointMoment_Y)*rtn.freq;
-    d_jointMoment_Z = gradient(jointMoment_Z)*rtn.freq;
+    d_jointMoment_X = gradient(jointMoment_X)*S.freq;
+    d_jointMoment_Y = gradient(jointMoment_Y)*S.freq;
+    d_jointMoment_Z = gradient(jointMoment_Z)*S.freq;
 
-    d2_jointMoment_X = gradient(d_jointMoment_X)*rtn.freq;
-    d2_jointMoment_Y = gradient(d_jointMoment_Y)*rtn.freq;
-    d2_jointMoment_Z = gradient(d_jointMoment_Z)*rtn.freq;
+    d2_jointMoment_X = gradient(d_jointMoment_X)*S.freq;
+    d2_jointMoment_Y = gradient(d_jointMoment_Y)*S.freq;
+    d2_jointMoment_Z = gradient(d_jointMoment_Z)*S.freq;
 
     % Power (calculate) -------------------------------------------------------
     jointPower_X = d_jointAngle_X.*jointMoment_X;
     jointPower_Y = d_jointAngle_Y.*jointMoment_Y;
     jointPower_Z = d_jointAngle_Z.*jointMoment_Z;
 
-    d_jointPower_X = gradient(jointPower_X)*rtn.freq;
-    d_jointPower_Y = gradient(jointPower_Y)*rtn.freq;
-    d_jointPower_Z = gradient(jointPower_Z)*rtn.freq;
+    d_jointPower_X = gradient(jointPower_X)*S.freq;
+    d_jointPower_Y = gradient(jointPower_Y)*S.freq;
+    d_jointPower_Z = gradient(jointPower_Z)*S.freq;
 
-    d2_jointPower_X = gradient(d_jointPower_X)*rtn.freq;
-    d2_jointPower_Y = gradient(d_jointPower_Y)*rtn.freq;
-    d2_jointPower_Z = gradient(d_jointPower_Z)*rtn.freq;
+    d2_jointPower_X = gradient(d_jointPower_X)*S.freq;
+    d2_jointPower_Y = gradient(d_jointPower_Y)*S.freq;
+    d2_jointPower_Z = gradient(d_jointPower_Z)*S.freq;
 
     % Store Angle info --------------------------------------------------------
-    rtn.id.(labelName{1 + (3*i - 3)}).X = jointAngle_X;
-    rtn.id.(labelName{1 + (3*i - 3)}).Y = jointAngle_Y;
-    rtn.id.(labelName{1 + (3*i - 3)}).Z = jointAngle_Z;
+    S.Model.(labelName{1 + (3*i - 3)}).X = jointAngle_X;
+    S.Model.(labelName{1 + (3*i - 3)}).Y = jointAngle_Y;
+    S.Model.(labelName{1 + (3*i - 3)}).Z = jointAngle_Z;
 
     % 1st time derivative
-    rtn.id.(['d_',labelName{1 + (3*i - 3)}]).X = d_jointAngle_X;
-    rtn.id.(['d_',labelName{1 + (3*i - 3)}]).Y = d_jointAngle_Y;
-    rtn.id.(['d_',labelName{1 + (3*i - 3)}]).Z = d_jointAngle_Z;
+    S.Model.(['d_',labelName{1 + (3*i - 3)}]).X = d_jointAngle_X;
+    S.Model.(['d_',labelName{1 + (3*i - 3)}]).Y = d_jointAngle_Y;
+    S.Model.(['d_',labelName{1 + (3*i - 3)}]).Z = d_jointAngle_Z;
 
     % 2nd time derivative
-    rtn.id.(['d2_',labelName{1 + (3*i - 3)}]).X = d2_jointAngle_X;
-    rtn.id.(['d2_',labelName{1 + (3*i - 3)}]).Y = d2_jointAngle_Y;
-    rtn.id.(['d2_',labelName{1 + (3*i - 3)}]).Z = d2_jointAngle_Z;
+    S.Model.(['d2_',labelName{1 + (3*i - 3)}]).X = d2_jointAngle_X;
+    S.Model.(['d2_',labelName{1 + (3*i - 3)}]).Y = d2_jointAngle_Y;
+    S.Model.(['d2_',labelName{1 + (3*i - 3)}]).Z = d2_jointAngle_Z;
 
     if(debug)
       figure;
         subplot(311); hold all;
           title(['Saggital Plane ', labelName{1 + (3*i - 3)}],'fontsize',20)
-          plot(jointAngle_X,'k')
+          plot(jointAngle_X)
         subplot(312); hold all;
-          plot(d_jointAngle_X,'k')
+          plot(d_jointAngle_X)
         subplot(313); hold all;
-          plot(d2_jointAngle_X,'k')
+          plot(d2_jointAngle_X)
     end
 
     % Store Moment info --------------------------------------------------------
-    rtn.id.(labelName{2 + (3*i - 3)}).X = jointMoment_X;
-    rtn.id.(labelName{2 + (3*i - 3)}).Y = jointMoment_Y;
-    rtn.id.(labelName{2 + (3*i - 3)}).Z = jointMoment_Z;
+    S.Model.(labelName{2 + (3*i - 3)}).X = jointMoment_X;
+    S.Model.(labelName{2 + (3*i - 3)}).Y = jointMoment_Y;
+    S.Model.(labelName{2 + (3*i - 3)}).Z = jointMoment_Z;
 
     % 1st time derivative
-    rtn.id.(['d_',labelName{2 + (3*i - 3)}]).X = d_jointMoment_X;
-    rtn.id.(['d_',labelName{2 + (3*i - 3)}]).Y = d_jointMoment_Y;
-    rtn.id.(['d_',labelName{2 + (3*i - 3)}]).Z = d_jointMoment_Z;
+    S.Model.(['d_',labelName{2 + (3*i - 3)}]).X = d_jointMoment_X;
+    S.Model.(['d_',labelName{2 + (3*i - 3)}]).Y = d_jointMoment_Y;
+    S.Model.(['d_',labelName{2 + (3*i - 3)}]).Z = d_jointMoment_Z;
 
     % 2nd time derivative
-    rtn.id.(['d2_',labelName{2 + (3*i - 3)}]).X = d2_jointMoment_X;
-    rtn.id.(['d2_',labelName{2 + (3*i - 3)}]).Y = d2_jointMoment_Y;
-    rtn.id.(['d2_',labelName{2 + (3*i - 3)}]).Z = d2_jointMoment_Z;
+    S.Model.(['d2_',labelName{2 + (3*i - 3)}]).X = d2_jointMoment_X;
+    S.Model.(['d2_',labelName{2 + (3*i - 3)}]).Y = d2_jointMoment_Y;
+    S.Model.(['d2_',labelName{2 + (3*i - 3)}]).Z = d2_jointMoment_Z;
 
     if(debug)
       figure;
         subplot(311); hold all;
           title(['Saggital Plane ', labelName{2 + (3*i - 3)}],'fontsize',20)
-          plot(jointMoment_X,'k')
+          plot(jointMoment_X)
         subplot(312); hold all;
-          plot(d_jointMoment_X,'k')
+          plot(d_jointMoment_X)
         subplot(313); hold all;
-          plot(d2_jointMoment_X,'k')
+          plot(d2_jointMoment_X)
     end
 
     % Store Power info --------------------------------------------------------
-    rtn.id.(labelName{3 + (3*i - 3)}).X = jointPower_X;
-    rtn.id.(labelName{3 + (3*i - 3)}).Y = jointPower_Y;
-    rtn.id.(labelName{3 + (3*i - 3)}).Z = jointPower_Z;
+    S.Model.(labelName{3 + (3*i - 3)}).X = jointPower_X;
+    S.Model.(labelName{3 + (3*i - 3)}).Y = jointPower_Y;
+    S.Model.(labelName{3 + (3*i - 3)}).Z = jointPower_Z;
 
     % 1st time derivative
-    rtn.id.(['d_',labelName{3 + (3*i - 3)}]).X = d_jointPower_X;
-    rtn.id.(['d_',labelName{3 + (3*i - 3)}]).Y = d_jointPower_Y;
-    rtn.id.(['d_',labelName{3 + (3*i - 3)}]).Z = d_jointPower_Z;
+    S.Model.(['d_',labelName{3 + (3*i - 3)}]).X = d_jointPower_X;
+    S.Model.(['d_',labelName{3 + (3*i - 3)}]).Y = d_jointPower_Y;
+    S.Model.(['d_',labelName{3 + (3*i - 3)}]).Z = d_jointPower_Z;
 
     % 2nd time derivative
-    rtn.id.(['d2_',labelName{3 + (3*i - 3)}]).X = d2_jointPower_X;
-    rtn.id.(['d2_',labelName{3 + (3*i - 3)}]).Y = d2_jointPower_Y;
-    rtn.id.(['d2_',labelName{3 + (3*i - 3)}]).Z = d2_jointPower_Z;
+    S.Model.(['d2_',labelName{3 + (3*i - 3)}]).X = d2_jointPower_X;
+    S.Model.(['d2_',labelName{3 + (3*i - 3)}]).Y = d2_jointPower_Y;
+    S.Model.(['d2_',labelName{3 + (3*i - 3)}]).Z = d2_jointPower_Z;
 
     if(debug)
       figure;
         subplot(311); hold all;
           title(['Saggital Plane ', labelName{3 + (3*i - 3)}],'fontsize',20)
-          plot(jointPower_X,'k')
+          plot(jointPower_X)
         subplot(312); hold all;
-          plot(d_jointPower_X,'k')
+          plot(d_jointPower_X)
         subplot(313); hold all;
-          plot(d2_jointPower_X,'k')
+          plot(d2_jointPower_X)
     end
 
   end
@@ -255,9 +253,9 @@ function rtn = vicon_process_model(trialName)
 
   % put data (X,Y,Z subfields per field)
   for i=1:labelCnt
-    rtn.markers.(labelName{i}).X = D(:,3 + (3*i - 3));
-    rtn.markers.(labelName{i}).Y = D(:,4 + (3*i - 3));
-    rtn.markers.(labelName{i}).Z = D(:,5 + (3*i - 3));
+    S.Markers.(labelName{i}).X = D(:,3 + (3*i - 3));
+    S.Markers.(labelName{i}).Y = D(:,4 + (3*i - 3));
+    S.Markers.(labelName{i}).Z = D(:,5 + (3*i - 3));
   end
 
   fclose(fid);

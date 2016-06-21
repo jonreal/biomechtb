@@ -1,10 +1,15 @@
-function Events = vicon_process_events(S)
+function rtn = vicon_process_events(trialName,timeVector)
 
+  % Parse model file
+  file = ['./',trialName,'_Events.csv'];
+  if exist(file,'file') ~= 2
+    fprintf('\n\tEvent file not found: %s\n', file);
+    rtn = []
+    return
+  end
 
   % Load data file
-  directory = ['~/Dropbox/Professional/UW_PHD/', ...
-               'Prosthetic_Research/Data/PA_A01/Data/'];
-  fid = fopen([directory,S.name,'/',S.name,'_Events.csv']);
+  fid = fopen(file,'r');
 
   % skip two words, go next line, grab sample freq
   freq = fscanf(fid, '%*s\n %f', 1);
@@ -16,11 +21,14 @@ function Events = vicon_process_events(S)
   tline = fgetl(fid);
 
   formatSpec = ['%s %s %s %f %s\n'];
-  LFootOff_indx = [];
-  LHeelStrike_indx = [];
-  RFootOff_indx = [];
-  RHeelStrike_indx = [];
 
+  % Heel strike and toe off
+  l.hs_time = [];
+  l.to_time = [];
+  r.hs_time = [];
+  r.to_time = [];
+
+  % Parse event file, and store event indices
   while(1)
     C = textscan(fid, formatSpec, 'delimiter', ',');
     if isempty(C{4})
@@ -28,142 +36,72 @@ function Events = vicon_process_events(S)
     end
     if strcmp(C{2}, 'Left')
       if strcmp(C{3}, 'Foot Off')
-        LFootOff_indx(end+1,:) = floor(C{4}*freq);
+        l.to_time(end+1,:) = C{4};
       else
-        LHeelStrike_indx(end+1,:) = floor(C{4}*freq);
+        l.hs_time(end+1,:) = C{4};
       end
     else
       if strcmp(C{3}, 'Foot Off')
-        RFootOff_indx(end+1,:) = floor(C{4}*freq);
+        r.to_time(end+1,:) = C{4};
       else
-        RHeelStrike_indx(end+1,:) = floor(C{4}*freq);
+        r.hs_time(end+1,:) = C{4};
       end
     end
   end
+  fclose(fid);
 
-  % Remove nan
-  Events.L.TO = sort(LFootOff_indx(~isnan(LFootOff_indx)));
-  Events.L.HS = sort(LHeelStrike_indx(~isnan(LHeelStrike_indx)));
-  Events.R.TO = sort(RFootOff_indx(~isnan(RFootOff_indx)));
-  Events.R.HS = sort(RHeelStrike_indx(~isnan(RHeelStrike_indx)));
+  % Remove nan, sort
+  l.to_time = sort(l.to_time(~isnan(l.to_time)));
+  l.hs_time = sort(l.hs_time(~isnan(l.hs_time)));
+  r.to_time = sort(r.to_time(~isnan(r.to_time)));
+  r.hs_time = sort(r.hs_time(~isnan(r.hs_time)));
 
-  GRF = {S.GRF.Decimate.R.Fz,S.GRF.Decimate.L.Fz};
-  POS = {S.Model.RAnkleAngles.X,S.Model.LAnkleAngles.X};
-  VEL = {S.Model.d_RAnkleAngles.X,S.Model.d_LAnkleAngles.X};
-  MOM = {S.Model.RAnkleMoment.X,S.Model.LAnkleMoment.X};
+  % Remove first heel strike
+  l.hs_time(1) = [];
+  r.hs_time(1) = [];
 
-  FOOT = {'R','L'};
+  % If first to is before first hs remove
+  if(l.to_time(1) < l.hs_time(1))
+    l.to_time(1) = [];
+  end
+  if(r.to_time(1) < r.hs_time(1))
+    r.to_time(1) = [];
+  end
 
-  for k=1:2
+  % If last to happens before last hs remove
+  if(l.to_time(end) < l.hs_time(end))
+    l.hs_time(end) = [];
+  end
+  if(r.to_time(end) < r.hs_time(end))
+    r.hs_time(end) = [];
+  end
 
-    HS = Events.(FOOT{k}).HS + 1;
-    TO = Events.(FOOT{k}).TO + 1;
-    HS(HS == 1) = [];
-    TO(TO == 1) = [];
+  % Allocate vector size for vicon gaitevent indices
+  l.hs_index = 0.*l.hs_time;
+  l.to_index = 0.*l.to_time;
+  r.hs_index = 0.*r.hs_time;
+  r.to_index = 0.*r.to_time;
 
-    % Find MDF (Peaks)
-    pos = POS{k};
-    vel = VEL{k};
-    mom = MOM{k};
+  % Convert vicon events to indices
+  for i=1:numel(l.hs_time)
+    [~,ii] = min(abs(timeVector - l.hs_time(i)));
+    l.hs_index(i) = ii;
+  end
+  for i=1:numel(l.to_time)
+    [~,ii] = min(abs(timeVector - l.to_time(i)));
+    rtn.gaitEvents.l.to_index(i) = ii;
+  end
+  for i=1:numel(r.hs_time)
+    [~,ii] = min(abs(timeVector - r.hs_time(i)));
+    r.hs_index(i) = ii;
+  end
+  for i=1:numel(r.to_time)
+    [~,ii] = min(abs(timeVector - r.to_time(i)));
+    r.to_index(i) = ii;
+  end
 
-    [pks,MDF] = findpeaks(-mom);
-    MDF(pks < 0.8) = [];
+  gaitEvents.l = l;
+  gaitEvents.r = r;
 
-    figure; hold all;
-      plot(mom)
-      plot(MDF,mom(MDF),'or')
-
-    % Remove false MDF's
-%    ii = find(MDF(2:end) - MDF(1:end-1) < 100);
-%    ii = ii(1:2:numel(ii));
-%    MDF(ii+1) = [];
-
-    % Create ground truth vector
-    labels = [repmat('H',size(HS)); ...
-             repmat('M',size(MDF)); ...
-             repmat('T',size(TO))];
-    indices = [HS; MDF; TO];
-
-    [~,ii] = sort(indices);
-    indices = indices(ii);
-    labels = labels(ii);
-
-    gaitPhase = nan*ones(size(S.time));
-    if strcmp(labels(1),'H')
-      gaitPhase(1:indices(1)) = 3;
-      phase = 3;
-    elseif strcmp(labels(1),'M')
-      gaitPhase(1:indices(1)) = 1;
-      phase = 1;
-    elseif strcmp(labels(1),'T')
-      gaitPhase(1:indices(1)) = 2;
-      phase = 2;
-    end
-
-    for i=1:(numel(indices)-1)
-      phase = phase + 1;
-      if phase == 4;
-        phase = 1;
-      end
-      gaitPhase(indices(i)+1:indices(i+1)) = phase;
-    end
-
-    if strcmp(labels(end),'H')
-      gaitPhase(indices(end)+1:end) = 1;
-    elseif strcmp(labels(end),'M')
-      gaitPhase(indices(end)+1:end) = 2;
-    elseif strcmp(labels(end),'T')
-      gaitPhase(indices(end)+1:end) = 3;
-    end
-
-
-    Events.(FOOT{k}).HS = HS;
-    Events.(FOOT{k}).TO = TO;
-    Events.(FOOT{k}).MDF = MDF;
-    Events.(FOOT{k}).gaitPhase = gaitPhase;
-
-   end
-
-    figure;
-      subplot(211); hold all;
-        plot(S.Model.RAnkleAngles.X,'k')
-        [AX,H1,H2] = plotyy(1:numel(S.Model.RAnkleAngles.X), ...
-                            S.Model.RAnkleAngles.X, ...
-                            1:numel(Events.R.gaitPhase),...
-                            Events.R.gaitPhase);
-        delete(H1);
-        set(H2,'Marker','o','LineStyle','none')
-        plot(Events.R.HS,S.Model.RAnkleAngles.X(Events.R.HS),'or')
-        plot(Events.R.TO,S.Model.RAnkleAngles.X(Events.R.TO),'og')
-        plot(Events.R.MDF,S.Model.RAnkleAngles.X(Events.R.MDF),'oc')
-
-
-      subplot(212); hold all;
-        plot(S.Model.LAnkleAngles.X,'k')
-        [AX,H1,H2] = plotyy(1:numel(S.Model.LAnkleAngles.X), ...
-                            S.Model.LAnkleAngles.X, ...
-                            1:numel(Events.L.gaitPhase),...
-                            Events.L.gaitPhase);
-        delete(H1);
-        set(H2,'Marker','o','LineStyle','none')
-        plot(Events.L.HS,S.Model.LAnkleAngles.X(Events.L.HS),'or')
-        plot(Events.L.TO,S.Model.LAnkleAngles.X(Events.L.TO),'og')
-        plot(Events.L.MDF,S.Model.LAnkleAngles.X(Events.L.MDF),'oc')
-        legend('pos','HS','TO','MDF')
-
-    figure;
-      subplot(211); hold all;
-        plot(S.GRF.Decimate.R.Fz,'k')
-        plot(Events.R.HS,S.GRF.Decimate.R.Fz(Events.R.HS),'or')
-        plot(Events.R.TO,S.GRF.Decimate.R.Fz(Events.R.TO),'og')
-        plot(Events.R.MDF,S.GRF.Decimate.R.Fz(Events.R.MDF),'oc')
-        title('Right GRF')
-
-      subplot(212); hold all;
-        plot(S.GRF.Decimate.L.Fz,'k')
-        plot(Events.L.HS,S.GRF.Decimate.L.Fz(Events.L.HS),'or')
-        plot(Events.L.TO,S.GRF.Decimate.L.Fz(Events.L.TO),'og')
-        plot(Events.L.MDF,S.GRF.Decimate.L.Fz(Events.L.MDF),'oc')
-        title('Left GRF')
-        legend('Fz','HS','TO','MDF')
+  rtn = gaitEvents;
 end

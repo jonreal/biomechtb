@@ -6,7 +6,7 @@ snr = inf;
 cutOffFrq = inf;
 resetIc = 1;
 
-fd = 1000;
+fd = 1;
 numOfPer = 5;
 
 numOfIter = 100000;
@@ -14,7 +14,7 @@ numOfIter = 100000;
 % System
 wn = fn*2*pi;
 s = tf('s');
-sys = wn^2/(s^2 + 2*zeta*wn*s + wn^2);
+sys = (wn^2/(s^2 + 2*zeta*wn*s + wn^2));
 sys_ss = ss(sys);
 
 
@@ -28,6 +28,21 @@ fs = 1000*fd;
 tt = 0:(1/fs):(2*numOfPer*(1/fd)-(1/fs));
 tt = tt(:);
 
+
+u = randn(size(tt)); 
+[y,~] = lsim(sys,u,tt);
+%[~,x] = ode45(@(t,x) ...
+%              sys_ss.a*x + sys_ss.b*interp1(tt,u,t),tt,[0;0])
+%yy = sys_ss.c*x'
+
+%figure; hold all
+%  plot(tt,y)
+%  plot(tt,z,'--')
+%  plot(tt,yy,'--r')
+%figure;
+%  plot(tt,u)
+
+
 L = numel(tt);
 LL = L/2;
 
@@ -36,8 +51,8 @@ f = f(:);
 
 yd = yd(tt);
 
-%[uff,Ginv] = miifc_lti(sys_ss,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
-[Emax,Erms] = ifc_lti(sys_ss,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
+[uff,Ginv] = miifc_lti(sys,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
+%[Emax,Erms] = ifc_lti(sys_ss,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
 
 
 figure; hold all;

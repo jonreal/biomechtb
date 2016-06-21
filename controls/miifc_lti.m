@@ -1,12 +1,13 @@
-function [uff, Ginv] = miifc_lti(sys, tt, yd, snr,  ...
+function [Emax, Erms] = miifc_lti(sys, tt, yd, snr,  ...
                                 cutOffFreq, resestIc, numOfIter)
-% Modeling-free inversion-based iterative feedforward control (miifc)
+% Model free inversion based iterative control
+% Kim and Zou, 2013
 %
-% Algorithm from Kim and Zou 2013 (IEEE/ASME Trans. on Mech.)
-%
-% function [uff, Ginv] = miifc_lti(sys, tt, yd, snr,  ...
+% function [uff]  = ifc_lti(sys, tt, yd, snr,  ...
 %                                cutOffFreq, resestIc, numOfIter)
 %
+%
+[~,n] = size(sys.a);
 
 fs = 1/(tt(2) - tt(1));
 
@@ -23,92 +24,76 @@ Emax =@(yd, y) norm(yd - y,inf)./norm(yd,inf) * 100;
 Erms =@(yd, y) norm(yd - y,2)./norm(yd,2) * 100;
 
 % Frequency vector
-f = (-LL/2:LL/2 - 1)*fs/LL;
+f = (0:LL/2)*fs/LL;
 f = f(:);
+
 
 % Start index for fft (half of the yd)
 si = LL + 1;
 
 % FFT fo desired traj.
+Yd = fft(yd(si:end));
+Yd = Yd(1:LL/2 + 1);
 
-Yd = fftshift(fft(yd(si:end)));
 %Yd = Yd.*(abs(f) < cutOffFreq);
+%  figure;
+%    plot(f,abs(Yd))
+%    pause
 
 % Find peaks
-[val,index] = findpeaks(abs(Yd),'SORTSTR','descend');
-index(val < 0.01) = [];
+[~,index] = findpeaks(abs(Yd),'SORTSTR','descend','npeaks',20);
 
 % Truncated
-yd_truc = ifft(ifftshift(Yd));
+yd_truc = ifft([Yd(1:end); conj(flipud(Yd(2:end-1)))]);
 yd_truc = yd_truc(:);
 yd_truc = repmat(yd_truc,2,1);
 
-% Desired Trajectory
-
-%figure; hold all;
-%  title('Desired Trajectory','fontsize',20);
-%  plot(tt,yd,'k')
-%  plot(tt,yd_truc,'--r');
-%  xlabel('Time (s)','fontsize',20);
-%  grid on;
+figure; hold all;
+  plot(tt,yd,'ok')
+  plot(tt,yd_truc,'+r')
+figure;
+  plot(tt,yd-yd_truc);
+  pause
 
 % Bode
 frange = logspace(-4,4,1000);
-[mag, phase] = bode(sys,frange*2*pi);
+[mag, phi] = bode(sys,frange*2*pi);
 mag = mag(:);
-phase = phase(:);
+phi = phi(:);
 
-fq = abs(f(index(1:2:end)));
-[mag_yd, phase_yd] = bode(sys,fq*2*pi);
+fq = abs(f(index));
+[mag_yd, phi_yd] = bode(sys,fq*2*pi);
 mag_yd = mag_yd(:);
-phase_yd = phase_yd(:);
-
-figure;
-  subplot(211); hold all;
-    semilogx(frange,mag2db(mag),'k');
-    semilogx(fq,mag2db(mag_yd),'or');
-    plot([cutOffFreq*2*pi, cutOffFreq*2*pi], ylim, '--k')
-    set(gca,'xscale','log');
-    ylabel('Mag (dB)','fontsize',20);
-    grid on
-  subplot(212); hold all;
-    semilogx(frange,phase,'k');
-    semilogx(fq,phase_yd,'or');
-    plot([cutOffFreq*2*pi, cutOffFreq*2*pi], ylim, '--k')
-    set(gca,'xscale','log');
-    ylabel('Phase (deg)','fontsize',20);
-    xlabel('Frequency (Hz)','fontsize',20);
-    grid on
+phi_yd = phi_yd(:);
 
 % ---- Simulation ---- %
 
-Uff = 0.00001.*Yd;
-uff = ifft(ifftshift(Uff));
-uff = repmat(uff,2,1);
+uff = 0.00001*yd_truc;
+Uff = 0.00001*Yd;
+
 
 Emax_vector = zeros(1,numOfIter);
 Erms_vector = zeros(1,numOfIter);
 
 figure;
 
-  subplot(4,3,1); hold all;
-    semilogx(frange,mag2db(mag),'k');
+  subplot(4,3,1); hold all; semilogx(frange,mag2db(mag),'k');
     semilogx(fq,mag2db(mag_yd),'or');
-    plot([cutOffFreq*2*pi, cutOffFreq*2*pi], ylim, '--k')
+    plot([cutOffFreq, cutOffFreq], ylim, '--k')
     set(gca,'xscale','log');
     xlim([min(frange),max(frange)]);
-    ylabel('Mag (dB)','fontsize',20);
+    ylabel('Mag (dB)','fontsize',17,'interpreter','latex');
     grid on
     box on
 
   subplot(4,3,4); hold all;
-    semilogx(frange,phase,'k');
-    semilogx(fq,phase_yd,'or');
-    plot([cutOffFreq*2*pi, cutOffFreq*2*pi], ylim, '--k')
+    semilogx(frange,phi,'k');
+    semilogx(fq,phi_yd,'or');
+    plot([cutOffFreq, cutOffFreq], ylim, '--k')
     set(gca,'xscale','log');
     xlim([min(frange),max(frange)]);
-    ylabel('Phase (deg)','fontsize',20);
-    xlabel('Frequency (Hz)','fontsize',20);
+    ylabel('Phase (deg)','fontsize',17,'interpreter','latex');
+    xlabel('Frequency (Hz)','fontsize',17,'interpreter','latex');
     grid on
     box on
 
@@ -131,19 +116,23 @@ figure;
     box on
 
   subplot(4,3,8); hold all;
-    h_Ginv = plot(f,0*f);
-    xlim([0,max(f)])
-    xlim([0,cutOffFreq + 1])
+    h_E = plot(f(1:LL/2+1),0*f(1:LL/2+1));
     xlabel('Frequency (Hz)','fontsize',17,'interpreter','latex');
-    ylabel('$|G_{inv}|$','fontsize',17,'interpreter','latex');
+    ylabel('$|E|$','fontsize',17,'interpreter','latex');
     grid on
     box on
 
   subplot(4,3,9); hold all;
-    h_Uff = plot(f,0*f);
-    xlim([0,cutOffFreq + 1])
+    h_Uff = plot(f(1:LL/2+1),0*f(1:LL/2+1));
     xlabel('Frequency (Hz)','fontsize',17,'interpreter','latex');
     ylabel('$|U_{ff}|$','fontsize',17,'interpreter','latex')
+    grid on
+    box on
+
+  subplot(4,3,7); hold all;
+    h_rho = plot(f(1:LL/2+1),0*f(1:LL/2+1));
+    xlabel('Frequency (Hz)','fontsize',17,'interpreter','latex');
+    ylabel('$\rho$','fontsize',17,'interpreter','latex')
     grid on
     box on
 
@@ -157,15 +146,17 @@ figure;
 
   set(gcf,'Position',[20,20,1000,1000]);
 
-x0 = [0; 0];
+
+x0 = zeros(n,1);
 for i=1:numOfIter
+
   tic
   [y,~,x] = lsim(sys,uff,tt,x0);
   y = awgn(y,snr,'measured');
   toc
 
   if resestIc
-    x0 = [0; 0];
+    x0 = zeros(n,1);
   else
     x0 = x(end,:);
   end
@@ -174,27 +165,37 @@ for i=1:numOfIter
   Emax_vector(i) = Emax(yd_truc(si:end),y(si:end));
 
   % Update
-  Yk = fftshift(fft(y(si:end)));
+  Yk = fft(y(si:end));
+  Yk = Yk(1:LL/2 + 1);
 
-  Ginv = (Uff./Yk);
-  Ginv(isnan(Ginv)) = 0;
-  Ginv(isinf(Ginv)) = 0;
+  Ginv = Uff./Yk;
 
   Uff = Ginv.*Yd;
-  Uff = Uff.*(abs(f) < cutOffFreq);
+  Uff(isnan(Uff)) = 0;
+  Uff(isinf(Uff)) = 0;
 
-  uff = ifft(ifftshift(Uff));
+
+  uff = ifft([Uff; conj(flipud(Uff(2:end-1)))]);
   uff = repmat(uff,2,1);
+
 
   set(h_title,'str',['Iteration = ', num2str(i)]);
   set(h_y,'YData',y);
   set(h_err,'XData',tt(si:end),'YData',yd_truc(si:end) - y(si:end));
   set(h_uff,'YData',uff)
-  set(h_Ginv, 'YData',abs(Ginv)/LL);
-  set(h_Uff,'YData',abs(Uff)/LL);
+  set(h_E, 'YData',abs(Ginv));
+  set(h_Uff,'Ydata',abs(Uff));
+%  set(h_rho,'YData',abs(rho));
   set(h_er_max,'XData',1:i,'YData',Emax_vector(1:i));
   set(h_er_rms,'XData',1:i,'YData',Erms_vector(1:i));
   pause(0.0001)
 end
 
+Emax = Emax_vector(:);
+Erms = Erms_vector(:);
+
 end
+
+
+
+

@@ -7,6 +7,8 @@ function [Emax,Erms] = ifc_lti(sys, tt, yd, snr,  ...
 %
 %
 
+[~,n] = size(sys.a);
+
 fs = 1/(tt(2) - tt(1));
 
 % Column vectors
@@ -18,8 +20,9 @@ L = numel(tt);
 LL = L/2;
 
 % Error Metrics
-Emax =@(yd, y) norm(yd - y,inf)./norm(yd,inf) * 100;
-Erms =@(yd, y) norm(yd - y,2)./norm(yd,2) * 100;
+Emax =@(yd, y) norm(yd - y,inf);
+Erms =@(yd, y) norm(yd - y,2);
+
 
 % Frequency vector
 f = (0:LL/2)*fs/LL;
@@ -44,7 +47,7 @@ Yd(2:end) = Yd(2:end);
 %    pause
 
 % Find peaks
-[val,index] = findpeaks(abs(Yd),'SORTSTR','descend','npeaks',20);
+[~,index] = findpeaks(abs(Yd),'SORTSTR','descend','npeaks',20);
 
 % Truncated
 yd_truc = ifft([Yd(1); Yd(2:end); conj(flipud(Yd(2:end-1)))]);
@@ -69,7 +72,7 @@ phi_yd = phi_yd(:);
 
 % ---- Simulation ---- %
 
-Uff = 0.00001.*Yd;
+Uff = 0.0*Yd;
 uff = 0.0.*Uff(1:end-1);
 uff = repmat(uff,4,1);
 
@@ -148,14 +151,8 @@ figure;
   set(gcf,'Position',[20,20,1000,1000]);
 
 
-x0 = [0; 0];
-Uff_mag = f*0;
-Uff_angle = f*0;
-
-Uff_mag_prev = f*0;
-Uff_angle_prev = f*0;
+x0 = zeros(n,1);
 E_prev = f*0 + inf;
-
 for i=1:numOfIter
 
   tic
@@ -164,7 +161,7 @@ for i=1:numOfIter
   toc
 
   if resestIc
-    x0 = [0; 0];
+    x0 = zeros(n,1);
   else
     x0 = x(end,:);
   end
@@ -179,17 +176,19 @@ for i=1:numOfIter
 
   for j=1:(LL/2 + 1)
     if abs(E(j)) > abs(E_prev(j))
-
 %      phi = angle(E(j)) - angle(E_prev(j));
 %      xx = cos(phi);
 %      yy = sin(phi);
-
 %      rho(j) = (-yy + 1j*xx)*rho(j)*0.9;
-      rho(j) = 1j*rho(j)*0.8;
-      %rho(j) = rho(j)/2;
+%
+%      rho(j) = 1j*rho(j)*0.5;
+
+      rho(j) = rho(j)*0.5;
+
       Uff(j) = Uff_prev(j);
-    elseif abs(E(j)) < abs(E_prev(j))
-      rho(j) = rho(j)*1.1;
+
+   % elseif abs(E(j)) < abs(E_prev(j))
+    %  rho(j) = rho(j)*1.25;
     end
   end
   E_prev = E;
