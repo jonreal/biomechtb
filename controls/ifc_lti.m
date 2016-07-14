@@ -23,7 +23,6 @@ LL = L/2;
 Emax =@(yd, y) norm(yd - y,inf);
 Erms =@(yd, y) norm(yd - y,2);
 
-
 % Frequency vector
 f = (0:LL/2)*fs/LL;
 f = f(:);

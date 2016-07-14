@@ -76,32 +76,30 @@ function rtn = vicon_process_events(trialName,timeVector)
     r.hs_time(end) = [];
   end
 
-  % Allocate vector size for vicon gaitevent indices
-  l.hs_index = 0.*l.hs_time;
-  l.to_index = 0.*l.to_time;
-  r.hs_index = 0.*r.hs_time;
-  r.to_index = 0.*r.to_time;
+  % Reformat
+  % segmentedGaitCycles.l.time = [HS1, HS2,
+  %                               HS2, HS3,
+  %                               HS3, HS4]
+  for i=1:(numel(l.hs_time)-1)
+    segmentedGaitCycles.l.time(i,:) = [l.hs_time(i), l.hs_time(i+1)];
+  end
+
+  for i=1:(numel(r.hs_time)-1)
+    segmentedGaitCycles.r.time(i,:) = [r.hs_time(i), r.hs_time(i+1)];
+  end
 
   % Convert vicon events to indices
-  for i=1:numel(l.hs_time)
-    [~,ii] = min(abs(timeVector - l.hs_time(i)));
-    l.hs_index(i) = ii;
-  end
-  for i=1:numel(l.to_time)
-    [~,ii] = min(abs(timeVector - l.to_time(i)));
-    rtn.gaitEvents.l.to_index(i) = ii;
-  end
-  for i=1:numel(r.hs_time)
-    [~,ii] = min(abs(timeVector - r.hs_time(i)));
-    r.hs_index(i) = ii;
-  end
-  for i=1:numel(r.to_time)
-    [~,ii] = min(abs(timeVector - r.to_time(i)));
-    r.to_index(i) = ii;
+  for i=1:numel(segmentedGaitCycles.l.time(:,1))
+    [~,ii] = min(abs(timeVector - segmentedGaitCycles.l.time(i,1)));
+    [~,jj] = min(abs(timeVector - segmentedGaitCycles.l.time(i,2)));
+    segmentedGaitCycles.l.index(i,:) = [ii,jj];
   end
 
-  gaitEvents.l = l;
-  gaitEvents.r = r;
+  for i=1:numel(segmentedGaitCycles.r.time(:,1))
+    [~,ii] = min(abs(timeVector - segmentedGaitCycles.r.time(i,1)));
+    [~,jj] = min(abs(timeVector - segmentedGaitCycles.r.time(i,2)));
+    segmentedGaitCycles.r.index(i,:) = [ii,jj];
+  end
 
-  rtn = gaitEvents;
+  rtn = segmentedGaitCycles;
 end
