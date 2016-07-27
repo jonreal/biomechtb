@@ -40,7 +40,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       case 'prostheticSide'
         prostheticSide = varargin{i+1};
       case 'maxcurrent'
-        maxcurrent = varargin{i+1}
+        maxcurrent = varargin{i+1};
       case 'mass'
         mass = varargin{i+1};
       case 'stackmethod'
@@ -116,11 +116,11 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       % If first iteration, initialize learning
       if (k==1)
         fprintf('\n\tInitializing learning structures...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,1,0, ...
-                               'init',[gain,maxharmonic]);
+        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,0, ...
+                               'init',[1,maxharmonic]);
       else
         fprintf('\n\tLearning...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,1,rtn.S{k-1});
+        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,rtn.S{k-1});
       end
 
       % Filter uff
@@ -188,7 +188,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
         break;
       end
     end
-    rtn.S{k}.u_kp1_filt = u_k_filt;
+    rtn.S{k}.u_kp1_filt = u2;
 
     % Torque
     figure(h_torqe); clf; hold all;
@@ -293,7 +293,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       end
       if writeFlag
         fid = fopen(['./','uff_',num2str(k)],'w');
-        fprintf(fid,'%f\n',rtn.S{k+1}.u_kp1_filt);
+        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_filt);
         fclose(fid);
       end
     end

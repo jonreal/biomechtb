@@ -51,8 +51,6 @@ function rtn = vicon_process_trial(trialName,varargin)
   % Seperate each gait cycle
   for k=1:numel(foot)
 
-    rtn.emb.segmentedGaitCycles
-
     % Heelstike
     if strcmp(stackmethod,'embedded')
       hs_time = rtn.emb.segmentedGaitCycles.(foot{k}).time;

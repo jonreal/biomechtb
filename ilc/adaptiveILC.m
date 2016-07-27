@@ -1,17 +1,17 @@
-function S_k = adaptiveILC(yd_k, y_k, G_hat_inv, S_km1, varargin)
+function S_k = adaptiveILC(yd_k, y_k, scalar_gain, S_km1, varargin)
 % adaptiveILC Iterative learning control with adaptive learning gains.
 %             Currently works only in 1-D.
 %
 %   First iteration:
-%   S_0 = adaptiveILC(yd_k, y_k, G_hat_inv, 0, 'init', [gain,maxharmonic])
+%   S_0 = adaptiveILC(yd_k, y_k, scalar_gain, 0, 'init', [gain,maxharmonic])
 %
 %
 %   All others:
-%   S_k = adaptiveILC(yd_k,y_k,G_hat_inv,S_km1)
+%   S_k = adaptiveILC(yd_k,y_k,scalar_gain,S_km1)
 %
 %                         yd_k  -  k_th desired output
 %                         y_k   -  k_th output
-%                         G_hat_inv - inverse model (constant only!)
+%                         scalar_gain - inverse model (constant only!)
 %                         S_km1   -  {k-1}_th stucture
 %
 %                         S_k : Yd_k     - k_th desired output
@@ -28,13 +28,13 @@ function S_k = adaptiveILC(yd_k, y_k, G_hat_inv, S_km1, varargin)
 %                               e_k_2    - k_th norm(yd_k - y_k,2)
 %
 % Example:
-%   S_0 = adaptiveILC(yd_0, y_0, G_hat_inv, 0, 'init', [gain, maxharmonic]);
-%   S_1 = adaptiveILC(yd_1, y_1, G_hat_inv, S_0);
-%   S_2 = adaptiveILC(yd_2, y_2, G_hat_inv, S_1);
+%   S_0 = adaptiveILC(yd_0, y_0, scalar_gain, 0, 'init', [gain, maxharmonic]);
+%   S_1 = adaptiveILC(yd_1, y_1, scalar_gain, S_0);
+%   S_2 = adaptiveILC(yd_2, y_2, scalar_gain, S_1);
 %   .
 %   .
 %   .
-%   S_k = adaptiveILC(yd_k, y_k, G_hat_inv, S_km1);
+%   S_k = adaptiveILC(yd_k, y_k, scalar_gain, S_km1);
 
   init = 0;
   nVarArgs = length(varargin);
@@ -80,7 +80,7 @@ function S_k = adaptiveILC(yd_k, y_k, G_hat_inv, S_km1, varargin)
     rho_k(maxharmonic+2:end) = 0;
 
     % First learning iteration
-    U_kp1 = rho_k .* G_hat_inv .* E_k;
+    U_kp1 = rho_k .* scalar_gain .* E_k;
     u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
 
     % S_0 struct.
@@ -118,7 +118,7 @@ function S_k = adaptiveILC(yd_k, y_k, G_hat_inv, S_km1, varargin)
   E_bar_k = (E_decr .* E_bar_km1) + (E_decr .* E_k);
   U_bar_k = (E_decr .* U_bar_km1) + (E_decr .* U_k);
 
-  U_kp1 = U_bar_k + rho_k .* G_hat_inv .* E_bar_k;
+  U_kp1 = U_bar_k + rho_k .* scalar_gain .* E_bar_k;
   u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
 
   % Pack S_kp1 struct.
