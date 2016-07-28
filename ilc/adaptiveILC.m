@@ -115,8 +115,8 @@ function S_k = adaptiveILC(yd_k, y_k, scalar_gain, S_km1, varargin)
 
   % Updates
   rho_k = (E_incr .* rho_km1) / alpha + (E_decr .* rho_km1);
-  E_bar_k = (E_decr .* E_bar_km1) + (E_decr .* E_k);
-  U_bar_k = (E_decr .* U_bar_km1) + (E_decr .* U_k);
+  E_bar_k = (E_incr .* E_bar_km1) + (E_decr .* E_k);
+  U_bar_k = (E_incr .* U_bar_km1) + (E_decr .* U_k);
 
   U_kp1 = U_bar_k + rho_k .* scalar_gain .* E_bar_k;
   u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);

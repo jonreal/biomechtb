@@ -4,7 +4,7 @@ function rtn = vicon_process_trial(trialName,varargin)
 
   % Defaults
   stackmethod = 'vicon';
-  processViconEvents = 1;
+  processViconEvents = 0;
   processEmbedded = 1;
 
   for i=1:2:nVarArgs

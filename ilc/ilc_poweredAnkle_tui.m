@@ -10,7 +10,8 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 %   Parameters: (defaults)
 %
 %   gain              -  (1), learning gain, value is positive numerical value
-%   stackmethod       -  (vicon), averaging source, value can be [vicon | embedded]
+%   stackmethod       -  (embedded), averaging source,
+%                         value can be [vicon | embedded]
 %   maxharmonic       -  (10), max harmonic to learn, positive interger
 %   torque2current    -  (0.4), torque to current confersion factor, numerical value
 %                         this value is the inverse plant model
@@ -26,10 +27,10 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 
   % Defauts Settings
   gain = 1;
-  stackmethod = 'vicon';
+  stackmethod = 'embedded';
   maxharmonic = 10;
   torque2current = 0.4;
-  smooth_vector = [95,5];
+  smooth_vector = [90,10];
   mass = 85;
   maxcurrent = 20;
   prostheticSide = 'left';
@@ -140,7 +141,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 
       figure(h_torque_only); clf; hold all;
         plot(gaitCycle,u1,'k');
-        plot(gaitCycle, u2,'r');
+        plot(gaitCycle,u2,'r');
         title('Learned Torque Signal','fontsize',20);
         xlabel('% gait','fontsize',20);
         ylabel('Current (A)','fontsize',20);
@@ -188,7 +189,8 @@ function rtn = ilc_poweredAnkle_tui(varargin)
         break;
       end
     end
-    rtn.S{k}.u_kp1_filt = u2;
+    rtn.S{k}.u_kp1_filt = u_k_filt;
+    rtn.S{k}.u_kp1_lt = u2;
 
     % Torque
     figure(h_torqe); clf; hold all;
@@ -293,7 +295,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       end
       if writeFlag
         fid = fopen(['./','uff_',num2str(k)],'w');
-        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_filt);
+        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_lt);
         fclose(fid);
       end
     end
