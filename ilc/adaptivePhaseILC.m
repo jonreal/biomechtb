@@ -51,15 +51,10 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
 
   % Defaults
   alpha = 2;
-
-  % Exclude last point (ie 100% sample == 0% sample)
-  %yd_k = yd_k(1:end-1);
-  %y_k = y_k(1:end-1);
-
   L = numel(yd_k);
 
   % This is really f/fs -> fs is the sampling freq.
-  % Typically use normalized data (e.g., %gait) hence fs = NNpoints/T_gait
+  % Typically use normalized data (e.g., %gait) hence fs = 1000/T_gait
   f = (0:(L/2))/L;
   f = f(:);
 
@@ -73,6 +68,7 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   % Error
   E_k = Yd_k - Y_k;
 
+  % Norm Errors
   e_k_inf = norm(yd_k - y_k,inf);
   e_k_2 = norm(yd_k - y_k,2);
   E_k_inf = norm(Yd_k - Y_k,inf);
@@ -85,6 +81,9 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
     rho_k = ones(numel(f),1);
     rho_k((maxharmonic+2):end) = 0;
 
+    phase_k = ones(numel(f),1) .* exp(j.*pi/4);
+    phase_k((maxharmonic+2):end) = 0;
+
     % First learning iteration
     U_kp1 = rho_k .* gain_k .* E_k;
     u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
@@ -95,9 +94,11 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
     S_0.yd_k = yd_k;
     S_0.Y_k = Y_k;
     S_0.y_k = y_k;
+    S_0.phase_k = phase_k;
     S_0.rho_k = rho_k;
     S_0.gain_k = gain_k;
 
+    S_0.E_bar_phase_k = E_k;
     S_0.E_bar_k = E_k;
     S_0.U_bar_k = zeros(numel(f),1);
 
@@ -115,18 +116,38 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   end
 
   % Unwrap input struct.
+  phase_km1 = S_km1.phase_k;
   rho_km1 = S_km1.rho_k;
   E_bar_km1 = S_km1.E_bar_k;
   U_bar_km1 = S_km1.U_bar_k;
   U_k = S_km1.U_kp1;
   E_km1 = S_km1.E_k;
+  E_bar_phase_km1 = S_km1.E_bar_phase_k;
 
   % Find at what frequencies the magnitude of error has increased/decreased
   E_incr = abs(E_k) > abs(E_bar_km1);
   E_decr = ~(E_incr);
 
+  % Find where phase is positive
+  E_phase_incr = abs(angle(E_k)) > abs(angle(E_bar_phase_km1));
+  E_phase_decr = ~(E_phase_incr);
+
+  E_phase_pos = angle(E_k) > 0;
+  E_phase_neg = ~(E_phase_pos);
+
   % Updates
-  rho_k = (E_incr .* rho_km1/alpha) + (E_decr .* rho_km1);
+  phase_k = (E_phase_pos & E_phase_incr) .* exp(j.*angle(E_bar_phase_km1)) ...
+            .* exp(j.*angle(E_k)) ...
+           + (E_phase_neg & E_phase_incr) .* -exp(j.*angle(E_bar_phase_km1)) ...
+            .* exp(j.*angle(E_k)) ...
+           + E_phase_decr;
+
+  E_bar_phase_k = (E_phase_incr .* E_bar_phase_km1) ...
+                  + (E_phase_decr .* E_k);
+
+
+  rho_k = (E_incr .* rho_km1/alpha.*j) + (E_decr .* rho_km1);
+
   E_bar_k = (E_incr .* E_bar_km1) + (E_decr .* E_k);
   U_bar_k = (E_incr .* U_bar_km1) + (E_decr .* U_k);
 
@@ -139,8 +160,11 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   S_k.yd_k = yd_k;
   S_k.Y_k = Y_k;
   S_k.y_k = y_k;
+  S_k.phase_k = phase_k;
   S_k.rho_k = rho_k;
   S_k.gain_k = gain_k;
+
+  S_k.E_bar_phase_k = E_bar_phase_k;
   S_k.E_bar_k = E_bar_k;
   S_k.U_bar_k = U_bar_k;
   S_k.E_k = E_k;

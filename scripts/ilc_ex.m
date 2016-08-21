@@ -51,8 +51,8 @@ f = f(:);
 
 yd = yd(tt);
 
-[uff,Ginv] = miifc_lti(sys,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
-%[Emax,Erms] = ifc_lti(sys_ss,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
+%[uff,Ginv] = miifc_lti(sys,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
+[Emax,Erms] = ifc_lti(sys_ss,tt,yd,snr,cutOffFrq,resetIc,numOfIter);
 
 
 figure; hold all;

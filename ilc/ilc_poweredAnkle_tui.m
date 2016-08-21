@@ -62,14 +62,84 @@ function rtn = ilc_poweredAnkle_tui(varargin)
   end
 
   % Filter for uff smoothing
-  [b,a] = butter(1,(2*10)/1000);
+  [b,a] = butter(1,(2*20)/1000);
 
-  % Figures
-  h_torqe = figure;
-  h_error_frq = figure;
-  h_rho = figure;
-  h_error_trial = figure;
-  h_torque_only = figure;
+  %----------------------------------------------------------------------------
+  % Plots
+  % ---------------------------------------------------------------------------
+  figure;
+
+  % |E_bar__k| v freq.
+    subplot(3,4,5); hold all;
+      h_E_bar_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
+      ylabel('$\| \bar{E}_k \|$','fontsize',17,'interpreter','latex');
+      xlabel('Harmonic','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % |U_bar_k| v freq.
+    subplot(3,4,9), hold all;
+      h_U_bar_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
+      ylabel('$\| \bar{U}_k \|$','fontsize',17,'interpreter','latex');
+      xlabel('Harmonic','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % rho v freq
+    subplot(3,4,2); hold all;
+      h_rho_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
+      ylabel('$\rho$','fontsize',17,'interpreter','latex');
+      xlabel('Harmonic','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % |E_k| v freq.
+    subplot(3,4,6); hold all;
+      h_E_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
+      ylabel('$\| E_k \|$','fontsize',17,'interpreter','latex');
+      xlabel('Harmonic','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % |U_k| v freq.
+    subplot(3,4,10), hold all;
+      h_U_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
+      ylabel('$\| U_k \|$','fontsize',17,'interpreter','latex');
+      xlabel('Harmonic','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % y v t
+    subplot(3,4,3:4); hold all;
+      h_title = title(['Iteration = ', num2str(0)], ...
+                       'interpreter','latex','fontsize',17);
+      h_y_v_t = plot(gaitCycle,0.*gaitCycle,'k');
+      h_yd_v_t = plot(gaitCycle,0.*gaitCycle,'r');
+      h_u_k_v_t = plot(gaitCycle,0.*gaitCycle,'g');
+      ylabel('(Nm)','fontsize',17,'interpreter','latex');
+      xlabel('\% gait','fontsize',17,'interpreter','latex');
+      grid on; box on
+
+    % u v t
+    subplot(3,4,7:8); hold all;
+      h_u_v_t = plot(gaitCycle,0.*gaitCycle,'m');
+      h_u_filt_v_t = plot(gaitCycle,0.*gaitCycle,'g');
+      xlabel('\% gait','fontsize',17,'interpreter','latex');
+      ylabel('(A)','fontsize',17,'interpreter','latex');
+      grid on; box on;
+
+    % e v t | f
+    subplot(3,4,11:12); hold all
+       h_er_inf_t = plot(0,0,'k');
+       h_er_2_t = plot(0,0,'r');
+       h_er_inf_f = plot(0,0,'--b');
+       h_er_2_f = plot(0,0,'--g');
+       h_er_inf_t_min = plot(0,0,'ok');
+       h_er_2_t_min = plot(0,0,'or');
+       h_er_inf_f_min = plot(0,0,'ob');
+       h_er_2_f_min = plot(0,0,'og');
+       xlabel('Iteration','fontsize',17,'interpreter','latex');
+       ylabel('Error','fontsize',17,'interpreter','latex')
+       grid on; box on;
+       l = legend('$\|e\|_\infty$','$\|e\|_2$','$\|E\|_\infty$','$\|E\|_2$');
+       set(l,'interpreter','latex','box','off');
+
+    set(gcf,'Position',[20,20,1100,1100]);
 
   fprintf('\n----------------------\n')
   fprintf('Iterative Learning UI\n')
@@ -81,6 +151,12 @@ function rtn = ilc_poweredAnkle_tui(varargin)
   fprintf('\tAnkle torque to motor current = %.3f\n',torque2current)
   fprintf('\tLearning Gain = %.3f\n',gain)
   fprintf('\tSmoothing = %i%% - %i%%\n', smooth_vector)
+
+  % Error Vectors
+  Einf_t = [];
+  E2_t = [];
+  Einf_f = [];
+  E2_f = [];
 
   k=1;
   while(1)
@@ -112,40 +188,87 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       y_k = rtn.T{k}.stats.r.RAnkleMoment.X(:,2);
     end
 
+    % Remove last point (0% == 100%)
+    yd_k = yd_k(1:(end-1));
+    y_k = y_k(1:(end-1));
+
     while(1)
 
       % If first iteration, initialize learning
       if (k==1)
         fprintf('\n\tInitializing learning structures...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,0, ...
-                               'init',[1,maxharmonic]);
+        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,0,'init', maxharmonic);
       else
         fprintf('\n\tLearning...\n');
         rtn.S{k} = adaptiveILC(yd_k,y_k,gain,rtn.S{k-1});
       end
 
-      % Filter uff
-      u_k_filt = rtn.S{k}.u_kp1;
-      u_k_filt(1:(round(smooth_vector(2)*10))) = 0;
-      u_k_filt(round(smooth_vector(1)*10):end) = 0;
-      u_k_filt = filtfilt(b,a,u_k_filt);
+      % Store the errors
+      Einf_t(k) = rtn.S{k}.e_k_inf;
+      E2_t(k) = rtn.S{k}.e_k_2;
+      Einf_f(k) = rtn.S{k}.E_k_inf;
+      E2_f(k) = rtn.S{k}.E_k_2;
 
-      u1 = mass*torque2current*rtn.S{k}.u_kp1;
-      u2 = mass*torque2current*u_k_filt;
+      [~,iinf_t] = min(Einf_t(1:k)./Einf_t(1));
+      [~,i2_t] = min(E2_t(1:k)./E2_t(1));
+      [~,iinf_f] = min(Einf_f(1:k)./Einf_f(1));
+      [~,i2_f] = min(E2_f(1:k)./E2_f(1));
 
-      if sum(abs(u2) > maxcurrent) > 0
+
+      % Filter uff  [Nm/kg]
+      u_kp1_filt = rtn.S{k}.u_kp1;
+      u_kp1_filt(1:(round(smooth_vector(2)*10))) = 0;
+      u_kp1_filt(round(smooth_vector(1)*10):end) = 0;
+      u_kp1_filt = filtfilt(b,a,u_kp1_filt);
+
+      % Convert to [A]
+      u_kp1_A = mass*rtn.S{k}.u_kp1*torque2current;
+      u_kp1_A_filt = mass*u_kp1_filt*torque2current;
+
+      if sum(abs(u_kp1_A_filt) > maxcurrent) > 0
         fprintf('\n---Motor will saturate!---\n');
-        u2(u2 > maxcurrent) = maxcurrent;
-        u2(u2 < -maxcurrent) = -maxcurrent;
+        saturate_pos_indx = find(u_kp1_A_filt > maxcurrent);
+        saturate_neg_indx = find(u_kp1_A_filt < -maxcurrent);
+
+        u_kp1_A_filt(saturate_pos_indx) = maxcurrent;
+        u_kp1_A_filt(saturate_neg_indx) = -maxcurrent;
+
       end
 
-      figure(h_torque_only); clf; hold all;
-        plot(gaitCycle,u1,'k');
-        plot(gaitCycle,u2,'r');
-        title('Learned Torque Signal','fontsize',20);
-        xlabel('% gait','fontsize',20);
-        ylabel('Current (A)','fontsize',20);
+      % Convert to [Nm]
+      u_kp1_Nm_filt = u_kp1_A_filt ./ torque2current;
+      u_kp1_Nm = u_kp1_A ./ torque2current;
 
+      rtn.S{k}.u_kp1_Nm_filt = u_kp1_Nm_filt;
+      rtn.S{k}.u_kp1_Nm = u_kp1_Nm;
+
+      % update plots
+      set(h_title,'string',['Iteration = ', num2str(k-1)]);
+      set(h_u_v_t,'YData',u_kp1_A);
+      set(h_u_filt_v_t,'YData',u_kp1_A_filt);
+      if k > 1
+        set(h_u_k_v_t, 'YData',rtn.S{k-1}.u_kp1_Nm_filt);
+        set(h_U_v_f,'YData',abs(rtn.S{k-1}.U_kp1(1:(maxharmonic+1))));
+      end
+      set(h_U_bar_v_f,'YData',abs(rtn.S{k}.U_bar_k(1:(maxharmonic+1))));
+      set(h_E_bar_v_f,'YData',abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))));
+      set(h_y_v_t,'YData', rtn.S{k}.y_k.*mass);
+      set(h_yd_v_t,'YData',rtn.S{k}.yd_k.*mass);
+
+      set(h_er_inf_t_min,'XData',iinf_t,'YData',Einf_t(iinf_t)./Einf_t(1));
+      set(h_er_2_t_min,'XData',i2_t,'YData',E2_t(i2_t)./E2_t(1));
+      set(h_er_inf_f_min,'XData',iinf_f,'YData',Einf_f(iinf_f)./Einf_f(1));
+      set(h_er_2_f_min,'XData',i2_f,'YData',E2_f(i2_f)./E2_f(1));
+
+      set(h_er_inf_t,'XData',1:k,'YData',Einf_t(1:k)./Einf_t(1));
+      set(h_er_2_t,'XData',1:k,'YData',E2_t(1:k)./E2_t(1));
+      set(h_er_inf_f,'XData',1:k,'YData',Einf_f(1:k)./Einf_f(1));
+      set(h_er_2_f,'XData',1:k,'YData',E2_f(1:k)./E2_f(1));
+
+      set(h_rho_v_f,'YData',rtn.S{k}.rho_k(1:(maxharmonic+1)).*gain);
+      set(h_E_v_f,'YData',abs(rtn.S{k}.E_k(1:(maxharmonic+1))));
+
+      % Promt for signal sufficient
       fprintf('\n\tSignal learned!\n');
       fprintf('\t\tIs this signal sufficient?')
       usr_input = input('[y|n] ', 's');
@@ -189,92 +312,8 @@ function rtn = ilc_poweredAnkle_tui(varargin)
         break;
       end
     end
-    rtn.S{k}.u_kp1_filt = u_k_filt;
-    rtn.S{k}.u_kp1_lt = u2;
 
-    % Torque
-    figure(h_torqe); clf; hold all;
-      for i=1:k;
-        plot3(gaitCycle.*0 + (i-1), ...
-              gaitCycle, ...
-              rtn.S{i}.yd_k,'k')
-        plot3(gaitCycle.*0 + (i-1), ...
-              gaitCycle, ...
-              rtn.S{i}.y_k,'r')
-        plot3(gaitCycle.*0 + (i-1), ...
-              gaitCycle, ...
-              rtn.S{i}.u_kp1_filt,'g')
-      end
-      grid on
-      if(k>1)
-        set(gca,'Xtick',[1:k])
-        xlim([0,k-1])
-      end
-      xlabel('Iteration','fontsize',20);
-      ylabel('% gait','fontsize',20);
-      zlabel('Nm/kg','fontsize',20);
-      title('Torque','fontsize',20);
-      view(40,30);
-
-    % Yd and Y plots
-    figure(h_error_frq); clf; hold all;
-      for i=1:k;
-        stem3(rtn.S{i}.f(1:maxharmonic+1).*0 + (i-1), ...
-              rtn.S{i}.f(1:maxharmonic+1), ...
-              abs(rtn.S{i}.Yd_k(1:maxharmonic+1)),'k')
-        stem3(rtn.S{i}.f(1:maxharmonic+1).*0 + (i-1), ...
-              rtn.S{i}.f(1:maxharmonic+1), ...
-              abs(rtn.S{i}.Y_k(1:maxharmonic+1)),'r')
-        stem3(rtn.S{i}.f(1:maxharmonic+1).*0 + (i-1), ...
-              rtn.S{i}.f(1:maxharmonic+1), ...
-              abs(rtn.S{i}.E_k(1:maxharmonic+1)),'g')
-      end
-      grid on
-      ylim([0,10])
-      if(k>1)
-        set(gca,'Xtick',[1:k])
-        xlim([0,k-1])
-      end
-      xlabel('Iteration','fontsize',20);
-      ylabel('f/f_0','fontsize',20);
-      zlabel('Mag','fontsize',20);
-      title('Error','fontsize',20);
-      view(40,30);
-
-    % Rho
-    figure(h_rho); clf; hold all;
-      for i=1:k;
-        stem3(rtn.S{i}.f(1:maxharmonic+1).*0 + (i-1), ...
-              rtn.S{i}.f(1:maxharmonic+1), ...
-              abs(rtn.S{i}.rho_k(1:maxharmonic+1)),'k')
-      end
-      grid on
-      ylim([0,10])
-      if(k>1)
-        set(gca,'Xtick',[1:k])
-        xlim([0,k-1])
-      end
-      xlabel('Iteration','fontsize',20);
-      ylabel('f/f_0','fontsize',20);
-      zlabel('Mag','fontsize',20);
-      title('Learning Weights','fontsize',20);
-      view(40,30);
-
-    % Error
-    figure(h_error_trial); clf; hold all;
-      for i=1:k;
-        stem((i-1),rtn.S{i}.e_k_1,'k')
-        stem((i-1),rtn.S{i}.e_k_2,'r')
-      end
-      grid on
-      if(k>1)
-        set(gca,'Xtick',[1:k])
-        xlim([0,k-1])
-      end
-      xlabel('Iteration','fontsize',20);
-      ylabel('Error','fontsize',20);
-      title('Error','fontsize',20);
-
+    % End of Iteration Promt
     fprintf('\n\t');
     fprintf('Write feedforward signal to file?');
     usr_input = input('[y|n]','s');
@@ -295,7 +334,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       end
       if writeFlag
         fid = fopen(['./','uff_',num2str(k)],'w');
-        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_lt);
+        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_A);
         fclose(fid);
       end
     end
