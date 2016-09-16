@@ -4,11 +4,11 @@ function rtn = ilc_ex_2
   stopFlag = 0;
 
   % Input parameters
-  fd = 0.1;
-  numOfPer = 5;
+  fd = 1;
+  numOfPer = 2;
   numOfIter = 100000;
-  maxHarmonic = 100;
-  gain = 0.75;
+  maxHarmonic = 10;
+  gain = 0.1;
 
   % Time vecotor
   fs = 1000*fd;
@@ -26,6 +26,14 @@ function rtn = ilc_ex_2
   sys = (wn^2/(s^2 + 2*zeta*wn*s + wn^2));
   sys_ss = ss(sys);
 
+  ww = 0.001*2*pi;
+
+  A =@(t) [sin(ww.*t) 0.1;
+            0.1 cos(ww.*t)];
+  B =@(t) [cos(2.*ww.*t)];
+  C = [1 1];
+
+  dynm =@(t,x,u) A(t)*x + B(t)*u
 
   % Desired Trajectory
   Td = 1/fd;
@@ -37,6 +45,9 @@ function rtn = ilc_ex_2
   L = LL/2;
   f = (0:(L/2)).*fs/L;
   f = f(:);
+
+
+
 
   % Bode
   frange = logspace(-4,4,1000);
@@ -148,23 +159,28 @@ function rtn = ilc_ex_2
       yy = yd.*0;
       u = yd.*0;
 
-      S{i} = adaptiveILC(yd_, y_, gain, 0, 'init', maxHarmonic);
-      %S{i} = adaptivePhaseILC(yd_, y_, gain, 0, 'init', maxHarmonic);
+      %S{i} = adaptiveILC(yd_, y_, gain, 0, 'init', maxHarmonic);
+      S{i} = adaptivePhaseILC(yd_, y_, gain, 0, 'init', maxHarmonic);
 
     else
       % Simulate with kth control signal
       u = S{i-1}.u_kp1;
       u = repmat(u, 2*numOfPer, 1);
+
       [yy,~,xx] = lsim(sys_ss, u, tt, [0;0]);
       yy = awgn(yy,snr,'measured');
+
+      uu =@(t) interp1(tt,u,t);
+      [~,x] = ode45(@(t,x) dynm(t,x,uu(t)), tt, [0;0])
+      yy = x(:,1);
 
       % Learn last half of trajectory
       y_ = yy(LL/2+1:end);
       y_stack = reshape(y_,Td*fs,numOfPer);
       y_ = mean(y_stack,2);
 
-      S{i} = adaptiveILC(yd_, y_, gain, S{i-1});
-      %S{i} = adaptivePhaseILC(yd_, y_, gain, S{i-1});
+      %S{i} = adaptiveILC(yd_, y_, gain, S{i-1});
+      S{i} = adaptivePhaseILC(yd_, y_, gain, S{i-1});
 
     end
 
@@ -216,12 +232,11 @@ function rtn = ilc_ex_2
 
   figure;
     subplot(211)
-    plot(0:(i-1),E2_f./E2_f(1),'k');
+    plot(0:(i-1),mag2db(E2_f./E2_f(1)),'k');
     ylabel('$\frac{\|E_k\|_2}{\|E_0\|_2}$','fontsize',20,'interpreter','latex');
     xlabel('$k$','interpreter','latex','fontsize',20);
     grid on; box on;
-    xlim([0,10])
-    ylim([0,1])
+    set(gca,'XScale','log')
 end
 
 function callBack(hObject,eventdata,handles)

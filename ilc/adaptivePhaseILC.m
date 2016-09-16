@@ -129,7 +129,7 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   E_decr = ~(E_incr);
 
   % Find where phase is positive
-  E_phase_incr = abs(angle(E_k)) > abs(angle(E_bar_phase_km1));
+  E_phase_incr = sign(angle(E_k));
   E_phase_decr = ~(E_phase_incr);
 
   E_phase_pos = angle(E_k) > 0;
@@ -146,13 +146,19 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
                   + (E_phase_decr .* E_k);
 
 
-  rho_k = (E_incr .* rho_km1/alpha.*j) + (E_decr .* rho_km1);
+  phasor = exp(j.*deg2rad(85))
 
   E_bar_k = (E_incr .* E_bar_km1) + (E_decr .* E_k);
   U_bar_k = (E_incr .* U_bar_km1) + (E_decr .* U_k);
 
+  rho_k = (E_incr .* rho_km1/alpha).*(-(phasor).^sign(angle(E_bar_k)))...
+           + (E_decr .* rho_km1).*(0.55*alpha);
+
+
+
   U_kp1 = U_bar_k + rho_k .* gain_k .* E_bar_k;
   u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:(end-1))))]);
+
 
   % Pack S_k struct.
   S_k.f = f;

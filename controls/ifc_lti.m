@@ -65,7 +65,7 @@ mag = mag(:);
 phi = phi(:);
 
 fq = abs(f(index));
-[mag_yd, phi_yd] = bode(sys,fq*2*pi);
+[mag_yd, phi_yd] = bode(sys,fq*2*pi:);
 mag_yd = mag_yd(:);
 phi_yd = phi_yd(:);
 
