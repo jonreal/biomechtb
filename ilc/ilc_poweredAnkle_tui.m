@@ -242,6 +242,9 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       rtn.S{k}.u_kp1_Nm_filt = u_kp1_Nm_filt;
       rtn.S{k}.u_kp1_Nm = u_kp1_Nm;
 
+      rtn.S{k}.u_kp1_A_filt = u_kp1_A_filt;
+      rtn.S{k}.u_kp1_A = u_kp1_A;
+
       % update plots
       set(h_title,'string',['Iteration = ', num2str(k-1)]);
       set(h_u_v_t,'YData',u_kp1_A);
