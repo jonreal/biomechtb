@@ -334,7 +334,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       end
       if writeFlag
         fid = fopen(['./','uff_',num2str(k)],'w');
-        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_A);
+        fprintf(fid,'%f\n',rtn.S{k}.u_kp1_A_filt);
         fclose(fid);
       end
     end
