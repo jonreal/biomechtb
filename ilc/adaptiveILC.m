@@ -1,6 +1,34 @@
-function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
+function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
 % adaptiveILC Iterative learning control with adaptive learning gains.
 %             Currently works only in 1-D.
+%
+%
+%   Algorithm:
+%
+%     at each harmonic (in freq domain)
+%
+%       condition: |E_k| > ( |E_bar_km1| + gamma_k )
+%
+%                        / rho_km1 alpha  if condition
+%               rho_k = {
+%                        \ rho_km1
+%
+%                          / E_bar_km1  if condition
+%               E_bar_k = {
+%                          \ E_k
+%
+%                          / U_bar_km1  if condition
+%               U_bar_k = {
+%                          \ U_k
+%
+%               U_kp1 = U_bar_k + rho_k * gain_k * E_bar_k
+%
+%
+%   Note: rho_k always is in a range [0,1], use gain_k to set the learning gain
+%   gamma_k is padding for error comparison. Use std of output signal druing
+%   k=0 iteration.
+%
+%   Use:
 %
 %   First iteration:
 %   S_0 = adaptiveILC(yd_k, y_k, gain_k, 0, 'init', maxharmonic)
@@ -9,9 +37,10 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
 %   All others:
 %   S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1)
 %
-%                         yd_k  -  k_th desired output
-%                         y_k   -  k_th output
-%                         gain_k - inverse model (constant only!)
+%                         yd_k    -  k_th desired output
+%                         y_k     -  k_th output
+%                         gamma_k -  error buffer (use variance of output k=0) 
+%                         gain_k  -  learning weight
 %                         S_km1   -  {k-1}_th stucture
 %
 %                         S_k : Yd_k     - k_th desired output
@@ -52,10 +81,7 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   % Defaults
   alpha = 2;
 
-  % Exclude last point (ie 100% sample == 0% sample)
-  %yd_k = yd_k(1:end-1);
-  %y_k = y_k(1:end-1);
-
+  % Number of points
   L = numel(yd_k);
 
   % This is really f/fs -> fs is the sampling freq.
@@ -85,8 +111,8 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
     rho_k = ones(numel(f),1);
     rho_k((maxharmonic+2):end) = 0;
 
-    % First learning iteration
-    U_kp1 = rho_k .* gain_k .* E_k;
+    % First learning iteration (use full error!) 
+    U_kp1 = rho_k .* E_k;
     u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
 
     % S_0 struct.
@@ -97,6 +123,7 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
     S_0.y_k = y_k;
     S_0.rho_k = rho_k;
     S_0.gain_k = gain_k;
+    S_0.gamma_k = gamma_k;
 
     S_0.E_bar_k = E_k;
     S_0.U_bar_k = zeros(numel(f),1);
@@ -115,14 +142,16 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   end
 
   % Unwrap input struct.
+  Yd_km1 = S_km1.Yd_k;
   rho_km1 = S_km1.rho_k;
-  E_bar_km1 = S_km1.E_bar_k;
-  U_bar_km1 = S_km1.U_bar_k;
   U_k = S_km1.U_kp1;
   E_km1 = S_km1.E_k;
 
+  E_bar_km1 = S_km1.E_bar_k;
+  U_bar_km1 = S_km1.U_bar_k;
+
   % Find at what frequencies the magnitude of error has increased/decreased
-  E_incr = abs(E_k) > abs(E_bar_km1);
+  E_incr = abs(E_k) > (abs(E_bar_km1) + gamma_k);
   E_decr = ~(E_incr);
 
   % Updates
@@ -141,6 +170,7 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   S_k.y_k = y_k;
   S_k.rho_k = rho_k;
   S_k.gain_k = gain_k;
+  S_k.gamma_k = gamma_k;
   S_k.E_bar_k = E_bar_k;
   S_k.U_bar_k = U_bar_k;
   S_k.E_k = E_k;
@@ -150,6 +180,4 @@ function S_k = adaptiveILC(yd_k, y_k, gain_k, S_km1, varargin)
   S_k.e_k_2 = e_k_2;
   S_k.E_k_inf = E_k_inf;
   S_k.E_k_2 = E_k_2;
-
-
 end

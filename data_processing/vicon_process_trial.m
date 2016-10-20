@@ -3,7 +3,7 @@ function rtn = vicon_process_trial(trialName,varargin)
   nVarArgs = length(varargin);
 
   % Defaults
-  stackmethod = 'vicon';
+  stackmethod = 'embedded';
   processViconEvents = 0;
   processEmbedded = 1;
 
@@ -46,6 +46,11 @@ function rtn = vicon_process_trial(trialName,varargin)
 
   % Field names
   q_name = fieldnames(rtn.id);
+
+  % Embedded system feild names (we don't need to interpolate all of them)
+  q_name_emb = fieldnames(rtn.emb.data);
+  q_name_emb = {q_name_emb{12:end-6}}';
+
   foot = {'l','r'};
 
   % Seperate each gait cycle
@@ -65,7 +70,7 @@ function rtn = vicon_process_trial(trialName,varargin)
         continue;
       end
 
-      % Find time stamp corresponding to HS
+      % Find time stamp corresponding to HS (vicon data)
       [~,ii] = min(abs(rtn.time - hs_time(i,1)));
       hs1 = ii;
 
@@ -77,7 +82,19 @@ function rtn = vicon_process_trial(trialName,varargin)
 
       rtn.stats.normalized.(foot{k}).time{i} = rawTime;
 
-      % Interpolate inverse dynamics
+      % Find time stamp corresponding to HS (embedded data)
+      [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,1)));
+      hs1_emb = ii;
+
+      [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,2)));
+      hs2_emb = ii;
+
+      rawTime = rtn.emb.data.time(hs1_emb:hs2_emb);
+      rawGaitCylce_emb = (rawTime - rawTime(1))./(rawTime(end) - rawTime(1))*100;
+
+      rtn.emb.stats.normalized.(foot{k}).time{i} = rawTime;
+
+      % Interpolate inverse dynamics (vicon)
       for j=1:numel(q_name)
         rtn.stats.normalized.(foot{k}).(q_name{j}).X(:,i) = ...
           interp1(rawGaitCylce, rtn.id.(q_name{j}).X(hs1:hs2), ...
@@ -89,29 +106,48 @@ function rtn = vicon_process_trial(trialName,varargin)
            interp1(rawGaitCylce, rtn.id.(q_name{j}).Z(hs1:hs2), ...
                    gaitCycle, 'spline');
       end
+
+      % Interpolate embedded system
+      for j=1:numel(q_name_emb)
+        rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j})(:,i) = ...
+          interp1(rawGaitCylce_emb, ...
+                  rtn.emb.data.(q_name_emb{j})(hs1_emb:hs2_emb), ...
+                  gaitCycle, 'spline');
+      end
+
     end
 
     % Mean, std
     for j=1:numel(q_name)
-     jointVarMean_X = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).X, 2);
-     jointVarMean_Y = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).Y, 2);
-     jointVarMean_Z = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).Z, 2);
+       jointVarMean_X = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).X, 2);
+       jointVarMean_Y = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).Y, 2);
+       jointVarMean_Z = mean(rtn.stats.normalized.(foot{k}).(q_name{j}).Z, 2);
 
-     jointVarStd_X = std(rtn.stats.normalized.(foot{k}).(q_name{j}).X')';
-     jointVarStd_Y = std(rtn.stats.normalized.(foot{k}).(q_name{j}).Y')';
-     jointVarStd_Z = std(rtn.stats.normalized.(foot{k}).(q_name{j}).Z')';
+       jointVarStd_X = std(rtn.stats.normalized.(foot{k}).(q_name{j}).X')';
+       jointVarStd_Y = std(rtn.stats.normalized.(foot{k}).(q_name{j}).Y')';
+       jointVarStd_Z = std(rtn.stats.normalized.(foot{k}).(q_name{j}).Z')';
 
-     rtn.stats.(foot{k}).(q_name{j}).X = [jointVarMean_X + jointVarStd_X, ...
-                                          jointVarMean_X, ...
-                                          jointVarMean_X - jointVarStd_X];
-     rtn.stats.(foot{k}).(q_name{j}).Y = [jointVarMean_Y + jointVarStd_Y, ...
-                                          jointVarMean_Y, ...
-                                          jointVarMean_Y - jointVarStd_Y];
-     rtn.stats.(foot{k}).(q_name{j}).Z = [jointVarMean_Z + jointVarStd_Z, ...
-                                          jointVarMean_Z, ...
-                                          jointVarMean_Z - jointVarStd_Z];
-   end
- end
+       rtn.stats.(foot{k}).(q_name{j}).X = [jointVarMean_X + jointVarStd_X, ...
+                                            jointVarMean_X, ...
+                                            jointVarMean_X - jointVarStd_X];
+       rtn.stats.(foot{k}).(q_name{j}).Y = [jointVarMean_Y + jointVarStd_Y, ...
+                                            jointVarMean_Y, ...
+                                            jointVarMean_Y - jointVarStd_Y];
+       rtn.stats.(foot{k}).(q_name{j}).Z = [jointVarMean_Z + jointVarStd_Z, ...
+                                            jointVarMean_Z, ...
+                                            jointVarMean_Z - jointVarStd_Z];
+    end
+    for j=1:numel(q_name_emb)
+       varMean = mean(rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j}), 2);
+       varStd = std(rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j})')';
+
+       rtn.emb.stats.(foot{k}).(q_name_emb{j}) = [varMean + varStd, ...
+                                                  varMean, ...
+                                                  varMean - varStd];
+
+    end
+
+  end
 
   figure;
     subplot(311); hold all;

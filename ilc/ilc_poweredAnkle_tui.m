@@ -71,6 +71,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 
   % |E_bar__k| v freq.
     subplot(3,4,5); hold all;
+      h_E_bar_v_f_p_gamma = stem(0:maxharmonic, 0.*(0:maxharmonic),'--r');
       h_E_bar_v_f = stem(0:maxharmonic, 0.*(0:maxharmonic),'k');
       ylabel('$\| \bar{E}_k \|$','fontsize',17,'interpreter','latex');
       xlabel('Harmonic','fontsize',17,'interpreter','latex');
@@ -149,6 +150,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
   fprintf('\tStack Method = %s\n',stackmethod)
   fprintf('\tMaximum harmonic = %i\n',maxharmonic)
   fprintf('\tAnkle torque to motor current = %.3f\n',torque2current)
+  fprintf('\tMass = %i\n',mass)
   fprintf('\tLearning Gain = %.3f\n',gain)
   fprintf('\tSmoothing = %i%% - %i%%\n', smooth_vector)
 
@@ -181,11 +183,24 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 
     % Desired output and output
     if strcmp(prostheticSide,'left')
+
+      % Means
       yd_k = rtn.T{k}.stats.r.RAnkleMoment.X(:,2);
       y_k = rtn.T{k}.stats.l.LAnkleMoment.X(:,2);
+
+      % all normalized trajectories
+      yd_k_all = rtn.T{k}.stats.normalized.r.RAnkleMoment.X;
+      y_k_all = rtn.T{k}.stats.normalized.l.LAnkleMoment.X;
+
     else
+
+      % Means
       yd_k = rtn.T{k}.stats.l.LAnkleMoment.X(:,2);
       y_k = rtn.T{k}.stats.r.RAnkleMoment.X(:,2);
+
+      % all normalized trajectories
+      yd_k_all = rtn.T{k}.stats.l.normalized.LAnkleMoment.X;
+      y_k_all = rtn.T{k}.stats.r.normalized.RAnkleMoment.X;
     end
 
     % Remove last point (0% == 100%)
@@ -197,10 +212,30 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       % If first iteration, initialize learning
       if (k==1)
         fprintf('\n\tInitializing learning structures...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,0,'init', maxharmonic);
+
+        % First iteration, find y_0 std in freq. domain
+        L = numel(y_k_all(1:end-1,1));
+        f = (0:(L/2));
+        Y_k_all = fft(y_k_all(1:end-1,:));
+        Y_k_all = Y_k_all(1:(L/2)+1,:);
+        Y_k_abs_mean = mean(abs(Y_k_all)')';
+        Y_k_abs_std = std(abs(Y_k_all)')';
+
+        gamma_ = 3.*Y_k_abs_std;
+
+        figure;
+          title('Standard deviation of output','fontsize',20);
+          plot(f,gamma_,'ok');
+          xlabel('Harmonic','fontsize',20);
+          ylabel('STD','fontsize',20)
+          xlim([0,maxharmonic])
+
+          pause
+
+        rtn.S{k} = adaptiveILC(yd_k,y_k,gamma_,gain,0,'init', maxharmonic);
       else
         fprintf('\n\tLearning...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,gain,rtn.S{k-1});
+        rtn.S{k} = adaptiveILC(yd_k,y_k,gamma_,gain,rtn.S{k-1});
       end
 
       % Store the errors
@@ -255,6 +290,9 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       end
       set(h_U_bar_v_f,'YData',abs(rtn.S{k}.U_bar_k(1:(maxharmonic+1))));
       set(h_E_bar_v_f,'YData',abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))));
+      set(h_E_bar_v_f_p_gamma,'YData', ...
+        abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))) ...
+          + rtn.S{k}.gamma_k(1:(maxharmonic+1)))
       set(h_y_v_t,'YData', rtn.S{k}.y_k.*mass);
       set(h_yd_v_t,'YData',rtn.S{k}.yd_k.*mass);
 
@@ -336,7 +374,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
         end
       end
       if writeFlag
-        fid = fopen(['./','uff_',num2str(k)],'w');
+        fid = fopen(file,'w');
         fprintf(fid,'%f\n',rtn.S{k}.u_kp1_A_filt);
         fclose(fid);
       end
