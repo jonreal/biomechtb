@@ -260,15 +260,15 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       u_kp1_A = mass*rtn.S{k}.u_kp1*torque2current;
       u_kp1_A_filt = mass*u_kp1_filt*torque2current;
 
-      if sum(abs(u_kp1_A_filt) > maxcurrent) > 0
-        fprintf('\n---Motor will saturate!---\n');
-        saturate_pos_indx = find(u_kp1_A_filt > maxcurrent);
-        saturate_neg_indx = find(u_kp1_A_filt < -maxcurrent);
+      %if sum(abs(u_kp1_A_filt) > maxcurrent) > 0
+      %  fprintf('\n---Motor will saturate!---\n');
+      %  saturate_pos_indx = find(u_kp1_A_filt > maxcurrent);
+      %  saturate_neg_indx = find(u_kp1_A_filt < -maxcurrent);
 
-        u_kp1_A_filt(saturate_pos_indx) = maxcurrent;
-        u_kp1_A_filt(saturate_neg_indx) = -maxcurrent;
+      %  u_kp1_A_filt(saturate_pos_indx) = maxcurrent;
+      %  u_kp1_A_filt(saturate_neg_indx) = -maxcurrent;
 
-      end
+      %end
 
       % Convert to [Nm]
       u_kp1_Nm_filt = u_kp1_A_filt ./ torque2current;
