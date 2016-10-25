@@ -39,7 +39,7 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
 %
 %                         yd_k    -  k_th desired output
 %                         y_k     -  k_th output
-%                         gamma_k -  error buffer (use variance of output k=0) 
+%                         gamma_k -  error buffer (use variance of output k=0)
 %                         gain_k  -  learning weight
 %                         S_km1   -  {k-1}_th stucture
 %
@@ -112,7 +112,7 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
     rho_k((maxharmonic+2):end) = 0;
 
     % First learning iteration (use full error!) 
-    U_kp1 = rho_k .* E_k;
+    U_kp1 = rho_k .* gain_k .* E_k;
     u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
 
     % S_0 struct.
