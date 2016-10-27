@@ -111,7 +111,6 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
     rho_k = ones(numel(f),1);
     rho_k((maxharmonic+2):end) = 0;
 
-    % First learning iteration (use full error!) 
     U_kp1 = rho_k .* gain_k .* E_k;
     u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:end-1)))]);
 
