@@ -26,7 +26,9 @@ function rtn = vicon_process_trial(trialName,varargin)
 
   % Process event data, (must pass time vector) if options are set for that
   if (strcmp(stackmethod,'vicon') || (processViconEvents))
-    rtn.segmentedGaitCycles = vicon_process_events(trialName,rtn.time);
+    temp = vicon_process_events(trialName,rtn.time);
+    rtn.segmentedGaitCycles = temp.segmentedGaitCycles;
+    rtn.gaitEvents = temp.gaitEvents; 
   end
 
   % Process subject params
@@ -48,8 +50,10 @@ function rtn = vicon_process_trial(trialName,varargin)
   q_name = fieldnames(rtn.id);
 
   % Embedded system feild names (we don't need to interpolate all of them)
-  q_name_emb = fieldnames(rtn.emb.data);
-  q_name_emb = {q_name_emb{12:end-6}}';
+  if (strcmp(stackmethod,'embedded') || (processEmbedded))
+    q_name_emb = fieldnames(rtn.emb.data);
+    q_name_emb = {q_name_emb{12:end-6}}';
+  end
 
   foot = {'l','r'};
 
@@ -82,17 +86,20 @@ function rtn = vicon_process_trial(trialName,varargin)
 
       rtn.stats.normalized.(foot{k}).time{i} = rawTime;
 
-      % Find time stamp corresponding to HS (embedded data)
-      [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,1)));
-      hs1_emb = ii;
 
-      [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,2)));
-      hs2_emb = ii;
+      if (strcmp(stackmethod,'embedded') || (processEmbedded))
+        % Find time stamp corresponding to HS (embedded data)
+        [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,1)));
+        hs1_emb = ii;
 
-      rawTime = rtn.emb.data.time(hs1_emb:hs2_emb);
-      rawGaitCylce_emb = (rawTime - rawTime(1))./(rawTime(end) - rawTime(1))*100;
+        [~,ii] = min(abs(rtn.emb.data.time - hs_time(i,2)));
+        hs2_emb = ii;
 
-      rtn.emb.stats.normalized.(foot{k}).time{i} = rawTime;
+        rawTime = rtn.emb.data.time(hs1_emb:hs2_emb);
+        rawGaitCylce_emb = (rawTime - rawTime(1))./(rawTime(end) - rawTime(1))*100;
+
+        rtn.emb.stats.normalized.(foot{k}).time{i} = rawTime;
+      end
 
       % Interpolate inverse dynamics (vicon)
       for j=1:numel(q_name)
@@ -108,11 +115,13 @@ function rtn = vicon_process_trial(trialName,varargin)
       end
 
       % Interpolate embedded system
-      for j=1:numel(q_name_emb)
-        rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j})(:,i) = ...
-          interp1(rawGaitCylce_emb, ...
+      if (strcmp(stackmethod,'embedded') || (processEmbedded))
+        for j=1:numel(q_name_emb)
+          rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j})(:,i) = ...
+            interp1(rawGaitCylce_emb, ...
                   rtn.emb.data.(q_name_emb{j})(hs1_emb:hs2_emb), ...
                   gaitCycle, 'spline');
+        end
       end
 
     end
@@ -137,14 +146,17 @@ function rtn = vicon_process_trial(trialName,varargin)
                                             jointVarMean_Z, ...
                                             jointVarMean_Z - jointVarStd_Z];
     end
-    for j=1:numel(q_name_emb)
+
+
+    if (strcmp(stackmethod,'embedded') || (processEmbedded))
+     for j=1:numel(q_name_emb)
        varMean = mean(rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j}), 2);
        varStd = std(rtn.emb.stats.normalized.(foot{k}).(q_name_emb{j})')';
 
        rtn.emb.stats.(foot{k}).(q_name_emb{j}) = [varMean + varStd, ...
                                                   varMean, ...
                                                   varMean - varStd];
-
+     end
     end
 
   end

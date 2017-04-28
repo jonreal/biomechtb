@@ -101,5 +101,9 @@ function rtn = vicon_process_events(trialName,timeVector)
     segmentedGaitCycles.r.index(i,:) = [ii,jj];
   end
 
-  rtn = segmentedGaitCycles;
+  rtn.segmentedGaitCycles = segmentedGaitCycles;
+  rtn.gaitEvents.l.to_time = l.to_time;
+  rtn.gaitEvents.r.to_time = r.to_time;
+  rtn.gaitEvents.l.hs_time = l.hs_time;
+  rtn.gaitEvents.r.hs_time = r.hs_time;
 end
