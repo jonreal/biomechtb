@@ -13,8 +13,13 @@ function rtn = ilc_poweredAnkle_tui(varargin)
 %   stackmethod       -  (embedded), averaging source,
 %                         value can be [vicon | embedded]
 %   maxharmonic       -  (10), max harmonic to learn, positive interger
+%
 %   torque2current    -  (0.4), torque to current confersion factor, numerical value
 %                         this value is the inverse plant model
+%
+%                         value changed based on new motor
+%                         0.081
+%
 %   smoothing         -  ([95,5])traj. smoothing, value is 2-element vector [b,a]
 %                         b - % gait to start smoothing
 %                         a - % gait to stop smoothing
@@ -29,10 +34,11 @@ function rtn = ilc_poweredAnkle_tui(varargin)
   gain = 1;
   stackmethod = 'embedded';
   maxharmonic = 10;
-  torque2current = 0.4;
-  smooth_vector = [90,10];
+  %torque2current = 0.4;
+  torque2current = 0.081;
+  smooth_vector = [95,5];
   mass = 85;
-  maxcurrent = 20;
+  maxcurrent = 14;
   prostheticSide = 'left';
   gaitCycle = 0:0.1:(100 - 0.1);
 
@@ -221,21 +227,21 @@ function rtn = ilc_poweredAnkle_tui(varargin)
         Y_k_abs_mean = mean(abs(Y_k_all)')';
         Y_k_abs_std = std(abs(Y_k_all)')';
 
-        gamma_ = 3.*Y_k_abs_std;
+        epsilon = 3.*Y_k_abs_std;
 
         figure;
           title('Standard deviation of output','fontsize',20);
-          plot(f,gamma_,'ok');
+          plot(f,epsilon,'ok');
           xlabel('Harmonic','fontsize',20);
           ylabel('STD','fontsize',20)
           xlim([0,maxharmonic])
 
           pause
 
-        rtn.S{k} = adaptiveILC(yd_k,y_k,gamma_,gain,0,'init', maxharmonic);
+        rtn.S{k} = adaptiveILC(yd_k,y_k,epsilon,gain,0,'init', maxharmonic);
       else
         fprintf('\n\tLearning...\n');
-        rtn.S{k} = adaptiveILC(yd_k,y_k,gamma_,gain,rtn.S{k-1});
+        rtn.S{k} = adaptiveILC(yd_k,y_k,epsilon,gain,rtn.S{k-1});
       end
 
       % Store the errors
@@ -292,7 +298,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       set(h_E_bar_v_f,'YData',abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))));
       set(h_E_bar_v_f_p_gamma,'YData', ...
         abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))) ...
-          + rtn.S{k}.gamma_k(1:(maxharmonic+1)))
+          + rtn.S{k}.epsilon(1:(maxharmonic+1)))
       set(h_y_v_t,'YData', rtn.S{k}.y_k.*mass);
       set(h_yd_v_t,'YData',rtn.S{k}.yd_k.*mass);
 
