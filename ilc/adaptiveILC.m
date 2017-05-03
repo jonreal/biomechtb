@@ -166,7 +166,7 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
   update = (~divergence) & E_decr;
 
   % Updates
-  rho_k = ((~udpate).* rho_km1/alpha) + (update.* rho_km1);
+  rho_k = ((~update).* rho_km1/alpha) + (update.* rho_km1);
   E_bar_k = ((~update).* E_bar_km1) + (update.* E_k);
   U_bar_k = ((~update).* U_bar_km1) + (update.* U_k);
 
