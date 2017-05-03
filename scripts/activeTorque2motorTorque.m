@@ -1,8 +1,14 @@
 % Current Configuration - (Jan 13 2016)
 ell = 0.004;
 eff = 0.9;
+
+% Old Motor
 R = 27/5;
 k_t = 0.00553;
+
+% New Motor
+R = 3249/169;
+k_t = 0.00775;
 
 a0 = 0.1;
 d = 0.06;
@@ -25,6 +31,8 @@ figure, hold all
   plot(rad2deg(theta_range), ankleTorque2current(theta_range))
   plot(rad2deg(theta_range), ...
        mean(ankleTorque2current(theta_range)) + 0.*theta_range)
+  xlabel('angle angle (deg)');
+  ylabel('torque => current (Nm/A)')
   grid on
 
 % Use 0.4 as scaling

@@ -80,6 +80,7 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
 
   % Defaults
   alpha = 2;
+  div_const = 1;
 
   % Number of points
   L = numel(yd_k);
@@ -127,6 +128,11 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
     S_0.E_bar_k = E_k;
     S_0.U_bar_k = zeros(numel(f),1);
 
+    % To monitor growth of reference signal
+    S_0.E_0 = E_k;
+    S_0.Yd_0 = Yd_k;
+    S_0.update = E_k.*0;
+
     S_0.E_k = E_k;
     S_0.U_kp1 = U_kp1;
     S_0.u_kp1 = u_kp1;
@@ -149,27 +155,33 @@ function S_k = adaptiveILC(yd_k, y_k, gamma_k, gain_k, S_km1, varargin)
   E_bar_km1 = S_km1.E_bar_k;
   U_bar_km1 = S_km1.U_bar_k;
 
+  % Check reference signal growth
+  divergence = abs(S_km1.Yd_0 - Yd_k) > div_const*abs(S_km1.E_0);
+
   % Find at what frequencies the magnitude of error has increased/decreased
   E_incr = abs(E_k) > (abs(E_bar_km1) + gamma_k);
-  E_decr = ~(E_incr);
+  E_decr = ~E_incr;
+
+  % Update only if ~divergence and E_decr
+  update = (~divergence) & E_decr;
 
   % Updates
-  rho_k = (E_incr .* rho_km1/alpha) + (E_decr .* rho_km1);
-  E_bar_k = (E_incr .* E_bar_km1) + (E_decr .* E_k);
-  U_bar_k = (E_incr .* U_bar_km1) + (E_decr .* U_k);
+  rho_k = ((~udpate).* rho_km1/alpha) + (update.* rho_km1);
+  E_bar_k = ((~update).* E_bar_km1) + (update.* E_k);
+  U_bar_k = ((~update).* U_bar_km1) + (update.* U_k);
 
   U_kp1 = U_bar_k + rho_k .* gain_k .* E_bar_k;
   u_kp1 = ifft([U_kp1; conj(flipud(U_kp1(2:(end-1))))]);
 
-  % Pack S_k struct.
-  S_k.f = f;
+  % Copy previous structure
+  S_k = S_km1;
+
+  % Update
+  S_k.update = update;
   S_k.Yd_k = Yd_k;
   S_k.yd_k = yd_k;
   S_k.Y_k = Y_k;
   S_k.y_k = y_k;
-  S_k.rho_k = rho_k;
-  S_k.gain_k = gain_k;
-  S_k.gamma_k = gamma_k;
   S_k.E_bar_k = E_bar_k;
   S_k.U_bar_k = U_bar_k;
   S_k.E_k = E_k;

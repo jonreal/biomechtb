@@ -298,7 +298,7 @@ function rtn = ilc_poweredAnkle_tui(varargin)
       set(h_E_bar_v_f,'YData',abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))));
       set(h_E_bar_v_f_p_gamma,'YData', ...
         abs(rtn.S{k}.E_bar_k(1:(maxharmonic+1))) ...
-          + rtn.S{k}.epsilon(1:(maxharmonic+1)))
+          + rtn.S{k}.gamma_k(1:(maxharmonic+1)))
       set(h_y_v_t,'YData', rtn.S{k}.y_k.*mass);
       set(h_yd_v_t,'YData',rtn.S{k}.yd_k.*mass);
 
